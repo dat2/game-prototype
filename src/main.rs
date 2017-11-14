@@ -9,7 +9,7 @@ use std::fs::File;
 mod errors;
 
 fn run() -> errors::Result<()> {
-  let mut window: PistonWindow = WindowSettings::new("prototype", [960, 600]).exit_on_esc(true)
+  let mut window: PistonWindow = WindowSettings::new("prototype", [960, 640]).exit_on_esc(true)
     .build()?;
 
   let reader = File::open("assets/main.tmx")?;
@@ -28,11 +28,22 @@ fn run() -> errors::Result<()> {
   let layer = &map.layers[0];
   let image = Image::new();
 
+  let mut player_position = (0.0, 0.0);
+
   while let Some(e) = window.next() {
+    if let Some(Button::Keyboard(key)) = e.press_args() {
+      match key {
+        Key::Left => player_position.0 -= tile_width as f64 / 2.0,
+        Key::Right => player_position.0 += tile_width as f64 / 2.0,
+        _ => {}
+      }
+    }
+
     if let Some(_) = e.render_args() {
       window.draw_2d(&e, |c, g| {
-        clear([0.5; 4], g);
+        clear([0.0; 4], g);
 
+        // render tile map
         for (y, row) in layer.tiles.iter().enumerate().clone() {
           for (x, &tile) in row.iter().enumerate() {
             if tile == 0 {
@@ -53,8 +64,16 @@ fn run() -> errors::Result<()> {
             image.src_rect(src_rect).draw(&tilesheet, &DrawState::default(), trans, g);
           }
         }
+
+        // render player
+        rectangle([1.0, 0.0, 0.0, 1.0],
+                  [player_position.0, player_position.1, 32.0, 32.0],
+                  c.transform,
+                  g);
+
       });
     }
+
   }
 
   Ok(())
