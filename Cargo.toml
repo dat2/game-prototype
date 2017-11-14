@@ -1,0 +1,10 @@
+[package]
+name = "game-prototype"
+version = "0.1.0"
+authors = ["Nicholas Dujay <nickdujay@gmail.com>"]
+
+[dependencies]
+error-chain = "0.11"
+piston = "0.33.0"
+piston_window = "0.70.0"
+tiled = "0.7.2"
