@@ -12,8 +12,8 @@ use failure::Error;
 use glutin_window::GlutinWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::window::WindowSettings;
-use piston::event_loop::*;
-use piston::input::*;
+use piston::event_loop::{Events, EventSettings};
+use piston::input::{Button, PressEvent, RenderEvent};
 use specs::{DispatcherBuilder, World};
 
 mod ecs;
@@ -29,8 +29,8 @@ fn run() -> Result<(), Error> {
 
   let mut world = World::new();
   world.register::<ecs::Position>();
-  world.register::<ecs::SourceRect>();
-  world.register::<ecs::Rect>();
+  world.register::<ecs::Tile>();
+  world.register::<ecs::RenderRect>();
   world.register::<ecs::Player>();
   world.add_resource(ecs::RenderEvents::new());
   world.add_resource(ecs::KeyPressEvents::new());
@@ -45,12 +45,12 @@ fn run() -> Result<(), Error> {
 
   let mut events = Events::new(EventSettings::new());
   while let Some(e) = events.next(&mut window) {
-    if let Some(args) = e.render_args() {
-      world.write_resource::<ecs::RenderEvents>().push(args);
-      dispatcher.dispatch(&mut world.res);
-    }
     if let Some(Button::Keyboard(key)) = e.press_args() {
       world.write_resource::<ecs::KeyPressEvents>().push(key);
+    }
+    if let Some(args) = e.render_args() {
+      world.write_resource::<ecs::RenderEvents>().push(args);
+      dispatcher.dispatch(&world.res);
     }
   }
 
