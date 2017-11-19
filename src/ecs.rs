@@ -79,6 +79,18 @@ pub fn load_tiles_into_world<P: AsRef<Path>>(path: P, world: &mut World) -> Resu
   Ok(())
 }
 
+pub fn create_player(world: &mut World) {
+  world.create_entity()
+    .with(Position { x: 0.0, y: 0.0 })
+    .with(Rect {
+      width: 64.0,
+      height: 64.0,
+      colour: [1.0, 0.0, 0.0, 1.0],
+    })
+    .with(Player)
+    .build();
+}
+
 // piston resources
 #[derive(Debug)]
 pub struct KeyPressEvents(VecDeque<Key>);
