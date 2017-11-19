@@ -18,7 +18,7 @@ impl Tile {
       tilesheet_x: tilesheet_x,
       tilesheet_y: tilesheet_y,
       width: width,
-      height: height
+      height: height,
     }
   }
 
@@ -54,19 +54,21 @@ impl TileMap {
     let num_tiles_per_row = tilesheet_width / tile_dimensions.0;
 
     Ok(TileMap {
-      tiles: map.layers[0].tiles.iter()
+      tiles: map.layers[0]
+        .tiles
+        .iter()
         .map(|vec| {
           vec.iter()
             .map(|&index| {
               if index == 0 {
                 None
               } else {
-                Some(Tile::new(
-                  (((index - 1) as usize % num_tiles_per_row) * tile_dimensions.0) as f64,
-                  (((index - 1) as usize / num_tiles_per_row) * tile_dimensions.1) as f64,
-                  tile_dimensions.0 as f64,
-                  tile_dimensions.1 as f64
-                ))
+                Some(Tile::new((((index - 1) as usize % num_tiles_per_row) *
+                                tile_dimensions.0) as f64,
+                               (((index - 1) as usize / num_tiles_per_row) *
+                                tile_dimensions.1) as f64,
+                               tile_dimensions.0 as f64,
+                               tile_dimensions.1 as f64))
               }
             })
             .collect()
@@ -74,7 +76,7 @@ impl TileMap {
         .collect(),
       tilesheet: tilesheet,
       tile_width: tile_dimensions.0,
-      tile_height: tile_dimensions.1
+      tile_height: tile_dimensions.1,
     })
   }
 
@@ -85,7 +87,8 @@ impl TileMap {
         if let &Some(ref tile) = tile_opt {
           let transform = c.transform
             .scale(0.5, 0.5)
-            .trans(x as f64 * self.tile_width as f64, y as f64 * self.tile_height as f64);
+            .trans(x as f64 * self.tile_width as f64,
+                   y as f64 * self.tile_height as f64);
 
           image.src_rect(tile.src_rect())
             .draw(&self.tilesheet, &DrawState::default(), transform, g);

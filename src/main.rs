@@ -1,47 +1,52 @@
 extern crate failure;
-extern crate ncollide;
-extern crate piston_window;
+extern crate glutin_window;
+extern crate graphics;
+extern crate opengl_graphics;
+extern crate piston;
+extern crate specs;
+#[macro_use]
+extern crate specs_derive;
 extern crate tiled;
 
 use failure::Error;
-use piston_window::*;
+use glutin_window::GlutinWindow;
+use opengl_graphics::{GlGraphics, OpenGL};
+use piston::window::WindowSettings;
+use piston::event_loop::*;
+use piston::input::*;
+use specs::{DispatcherBuilder, World};
 
-mod view;
+mod ecs;
+// mod view;
 
 fn run() -> Result<(), Error> {
-  let mut window: PistonWindow = WindowSettings::new("prototype", [960, 640])
+  let opengl = OpenGL::V3_2;
+
+  let mut window: GlutinWindow = WindowSettings::new("prototype", [960, 640])
+    .opengl(opengl)
     .exit_on_esc(true)
     .build()
     .unwrap();
 
-  let tile_map = view::TileMap::new("assets/main.tmx", &mut window)?;
+  let mut world = World::new();
+  world.register::<ecs::Tile>();
+  world.add_resource(ecs::RenderEvents::new());
 
-  let mut player_position = (0.0, 0.0);
+  ecs::load_tiles_into_world("main.tmx", &mut world)?;
 
-  while let Some(e) = window.next() {
-    if let Some(Button::Keyboard(key)) = e.press_args() {
-      match key {
-        Key::Left => player_position.0 -= tile_map.tile_width as f64 / 2.0,
-        Key::Right => player_position.0 += tile_map.tile_width as f64 / 2.0,
-        _ => {}
-      }
+  let tile_renderer = ecs::RenderSys::new(GlGraphics::new(opengl));
+  let mut dispatcher = DispatcherBuilder::new()
+    .add_thread_local(tile_renderer)
+    .build();
+
+  let mut events = Events::new(EventSettings::new().lazy(true));
+  while let Some(e) = events.next(&mut window) {
+    if let Some(args) = e.render_args() {
+      world.write_resource::<ecs::RenderEvents>().push(args);
+      dispatcher.dispatch(&mut world.res);
     }
-
-    if let Some(_) = e.render_args() {
-      window.draw_2d(&e, |c, mut g| {
-        clear([0.0; 4], g);
-
-        tile_map.render(&c, &mut g);
-
-        // render player
-        rectangle([1.0, 0.0, 0.0, 1.0],
-                  [player_position.0, player_position.1, 32.0, 32.0],
-                  c.transform,
-                  g);
-
-      });
+    if let Some(_) = e.update_args() {
     }
-
   }
 
   Ok(())
