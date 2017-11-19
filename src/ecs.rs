@@ -11,19 +11,32 @@ use tiled;
 
 #[derive(Component)]
 #[component(VecStorage)]
-pub struct Tile {
+pub struct Position {
+  pub x: f64,
+  pub y: f64
+}
+
+#[derive(Component)]
+#[component(VecStorage)]
+pub struct Rect {
+  pub width: f64,
+  pub height: f64,
+  pub colour: [f32; 4]
+}
+
+#[derive(Component)]
+#[component(VecStorage)]
+pub struct SourceRect {
   x: f64,
   y: f64,
-  tilesheet_x: f64,
-  tilesheet_y: f64,
   width: f64,
   height: f64,
   texture: Arc<Texture>,
 }
 
-impl Tile {
+impl SourceRect {
   fn src_rect(&self) -> [f64; 4] {
-    [self.tilesheet_x, self.tilesheet_y, self.width, self.height]
+    [self.x, self.y, self.width, self.height]
   }
 }
 
@@ -50,11 +63,13 @@ pub fn load_tiles_into_world<P: AsRef<Path>>(path: P,
     for (x, &index) in row.iter().enumerate() {
       if index != 0 {
         world.create_entity()
-          .with(Tile {
+          .with(Position {
             x: x as f64 * tile_dimensions.0 as f64,
             y: y as f64 * tile_dimensions.1 as f64,
-            tilesheet_x: (((index - 1) as usize % num_tiles_per_row) * tile_dimensions.0) as f64,
-            tilesheet_y: (((index - 1) as usize / num_tiles_per_row) * tile_dimensions.1) as f64,
+          })
+          .with(SourceRect {
+            x: (((index - 1) as usize % num_tiles_per_row) * tile_dimensions.0) as f64,
+            y: (((index - 1) as usize / num_tiles_per_row) * tile_dimensions.1) as f64,
             width: tile_dimensions.0 as f64,
             height: tile_dimensions.1 as f64,
             texture: tilesheet.clone(),
@@ -93,24 +108,37 @@ impl RenderSys {
 impl<'a> System<'a> for RenderSys {
   type SystemData = (
     FetchMut<'a, RenderEvents>,
-    ReadStorage<'a, Tile>
+    ReadStorage<'a, Position>,
+    ReadStorage<'a, SourceRect>,
+    ReadStorage<'a, Rect>
   );
 
   fn run(&mut self, data: Self::SystemData) {
-    let (mut render_events, tiles) = data;
+    let (mut render_events, pos, src_rect, rect) = data;
 
     if let Some(args) = render_events.0.pop_front() {
       self.gl.draw(args.viewport(), |c, g| {
         clear([0.0; 4], g);
 
+        // draw src_rect
         let image = Image::new();
-        for tile in tiles.join() {
+        for (pos, src_rect) in (&pos, &src_rect).join() {
           let transform = c.transform
             .scale(0.5, 0.5)
-            .trans(tile.x, tile.y);
+            .trans(pos.x, pos.y);
 
-          image.src_rect(tile.src_rect())
-            .draw(&*tile.texture, &DrawState::default(), transform, g);
+          image.src_rect(src_rect.src_rect())
+            .draw(&*src_rect.texture, &DrawState::default(), transform, g);
+        }
+
+        // draw rectangles
+        for (pos, rect) in (&pos, &rect).join() {
+          rectangle(
+            rect.colour,
+            [pos.x, pos.y, rect.width, rect.height],
+            c.transform.scale(0.5, 0.5),
+            g
+          );
         }
       })
     }
