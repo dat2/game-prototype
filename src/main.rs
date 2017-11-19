@@ -17,7 +17,6 @@ use piston::input::*;
 use specs::{DispatcherBuilder, World};
 
 mod ecs;
-// mod view;
 
 fn run() -> Result<(), Error> {
   let opengl = OpenGL::V3_2;
