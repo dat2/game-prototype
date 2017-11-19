@@ -1,19 +1,20 @@
 use failure::Error;
 use graphics::*;
 use opengl_graphics::{GlGraphics, Texture, TextureSettings};
-use piston::input::RenderArgs;
-use specs::{FetchMut, Join, ReadStorage, System, VecStorage, World};
+use piston::input::*;
+use specs::{FetchMut, Join, ReadStorage, System, VecStorage, World, WriteStorage};
 use std::collections::VecDeque;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tiled;
 
+// components
 #[derive(Component)]
 #[component(VecStorage)]
 pub struct Position {
   pub x: f64,
-  pub y: f64
+  pub y: f64,
 }
 
 #[derive(Component)]
@@ -21,7 +22,7 @@ pub struct Position {
 pub struct Rect {
   pub width: f64,
   pub height: f64,
-  pub colour: [f32; 4]
+  pub colour: [f32; 4],
 }
 
 #[derive(Component)]
@@ -34,15 +35,11 @@ pub struct SourceRect {
   texture: Arc<Texture>,
 }
 
-impl SourceRect {
-  fn src_rect(&self) -> [f64; 4] {
-    [self.x, self.y, self.width, self.height]
-  }
-}
+#[derive(Component)]
+#[component(VecStorage)]
+pub struct Player;
 
-pub fn load_tiles_into_world<P: AsRef<Path>>(path: P,
-                                             world: &mut World)
-                                             -> Result<(), Error> {
+pub fn load_tiles_into_world<P: AsRef<Path>>(path: P, world: &mut World) -> Result<(), Error> {
   let mut path_buf = PathBuf::new();
   path_buf.push("assets");
   path_buf.push(path);
@@ -82,6 +79,20 @@ pub fn load_tiles_into_world<P: AsRef<Path>>(path: P,
   Ok(())
 }
 
+// piston resources
+#[derive(Debug)]
+pub struct KeyPressEvents(VecDeque<Key>);
+
+impl KeyPressEvents {
+  pub fn new() -> KeyPressEvents {
+    KeyPressEvents(VecDeque::new())
+  }
+
+  pub fn push(&mut self, key: Key) {
+    self.0.push_back(key);
+  }
+}
+
 #[derive(Debug)]
 pub struct RenderEvents(VecDeque<RenderArgs>);
 
@@ -95,6 +106,7 @@ impl RenderEvents {
   }
 }
 
+// systems
 pub struct RenderSys {
   gl: GlGraphics,
 }
@@ -106,12 +118,10 @@ impl RenderSys {
 }
 
 impl<'a> System<'a> for RenderSys {
-  type SystemData = (
-    FetchMut<'a, RenderEvents>,
-    ReadStorage<'a, Position>,
-    ReadStorage<'a, SourceRect>,
-    ReadStorage<'a, Rect>
-  );
+  type SystemData = (FetchMut<'a, RenderEvents>,
+   ReadStorage<'a, Position>,
+   ReadStorage<'a, SourceRect>,
+   ReadStorage<'a, Rect>);
 
   fn run(&mut self, data: Self::SystemData) {
     let (mut render_events, pos, src_rect, rect) = data;
@@ -127,20 +137,42 @@ impl<'a> System<'a> for RenderSys {
             .scale(0.5, 0.5)
             .trans(pos.x, pos.y);
 
-          image.src_rect(src_rect.src_rect())
+          image.src_rect([src_rect.x, src_rect.y, src_rect.width, src_rect.height])
             .draw(&*src_rect.texture, &DrawState::default(), transform, g);
         }
 
         // draw rectangles
         for (pos, rect) in (&pos, &rect).join() {
-          rectangle(
-            rect.colour,
-            [pos.x, pos.y, rect.width, rect.height],
-            c.transform.scale(0.5, 0.5),
-            g
-          );
+          rectangle(rect.colour,
+                    [pos.x, pos.y, rect.width, rect.height],
+                    c.transform.scale(0.5, 0.5),
+                    g);
         }
       })
+    }
+  }
+}
+
+pub struct InputSys;
+
+impl<'a> System<'a> for InputSys {
+  type SystemData = (FetchMut<'a, KeyPressEvents>,
+   ReadStorage<'a, Player>,
+   WriteStorage<'a, Position>);
+
+  fn run(&mut self, data: Self::SystemData) {
+    let (mut key_press_events, player, mut pos) = data;
+
+    if let Some(key) = key_press_events.0.pop_front() {
+      for (_, mut pos) in (&player, &mut pos).join() {
+        match key {
+          Key::Left => pos.x -= 64.0,
+          Key::Right => pos.x += 64.0,
+          Key::Up => pos.y -= 64.0,
+          Key::Down => pos.y += 64.0,
+          _ => {}
+        }
+      }
     }
   }
 }

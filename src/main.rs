@@ -32,24 +32,24 @@ fn run() -> Result<(), Error> {
   world.register::<ecs::Position>();
   world.register::<ecs::SourceRect>();
   world.register::<ecs::Rect>();
+  world.register::<ecs::Player>();
   world.add_resource(ecs::RenderEvents::new());
+  world.add_resource(ecs::KeyPressEvents::new());
 
   ecs::load_tiles_into_world("main.tmx", &mut world)?;
   world.create_entity()
-  .with(ecs::Position {
-    x: 0.0,
-    y: 0.0,
-  })
-  .with(ecs::Rect {
-    width: 64.0,
-    height: 64.0,
-    colour: [1.0, 0.0, 0.0, 1.0]
-  })
-  .build();
+    .with(ecs::Position { x: 0.0, y: 0.0 })
+    .with(ecs::Rect {
+      width: 64.0,
+      height: 64.0,
+      colour: [1.0, 0.0, 0.0, 1.0],
+    })
+    .with(ecs::Player)
+    .build();
 
-  let tile_renderer = ecs::RenderSys::new(GlGraphics::new(opengl));
   let mut dispatcher = DispatcherBuilder::new()
-    .add_thread_local(tile_renderer)
+    .add(ecs::InputSys, "input", &[])
+    .add_thread_local(ecs::RenderSys::new(GlGraphics::new(opengl)))
     .build();
 
   let mut events = Events::new(EventSettings::new().lazy(true));
@@ -57,6 +57,9 @@ fn run() -> Result<(), Error> {
     if let Some(args) = e.render_args() {
       world.write_resource::<ecs::RenderEvents>().push(args);
       dispatcher.dispatch(&mut world.res);
+    }
+    if let Some(Button::Keyboard(key)) = e.press_args() {
+      world.write_resource::<ecs::KeyPressEvents>().push(key);
     }
   }
 
