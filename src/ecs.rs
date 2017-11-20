@@ -356,6 +356,11 @@ impl<'a> System<'a> for PhysicsSys {
               }
               None => bodies_to_remove.push(Rc::clone(body))
             }
+
+            for force in force_events.get(entity.id()) {
+              b.append_lin_force(force);
+            }
+            force_events.clear(entity.id());
           }
         }
       }
