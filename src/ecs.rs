@@ -339,12 +339,13 @@ impl<'a> System<'a> for PhysicsSys {
       }
 
       // step
-      self.world.step(dt * 2.0);
+      self.world.step(dt);
 
       // update
       let mut bodies_to_remove = Vec::new();
       for body in self.world.rigid_bodies() {
         let mut b = body.borrow_mut();
+        let mut entity_id = None;
         if let Some(any) = b.user_data() {
           if let Some(entity) = any.downcast_ref::<Entity>() {
             // update the position in specs
@@ -357,11 +358,15 @@ impl<'a> System<'a> for PhysicsSys {
               None => bodies_to_remove.push(Rc::clone(body))
             }
 
-            for force in force_events.get(entity.id()) {
-              b.append_lin_force(force);
-            }
-            force_events.clear(entity.id());
+            entity_id = Some(entity.id());
           }
+        }
+
+        if let Some(entity_id) = entity_id {
+          for force in force_events.get(entity_id) {
+            b.append_lin_force(force);
+          }
+          force_events.clear(entity_id);
         }
       }
 
