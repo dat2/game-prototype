@@ -7,11 +7,12 @@ use nphysics2d::volumetric::Volumetric;
 use nphysics2d::world::World as NWorld;
 use opengl_graphics::{GlGraphics, OpenGL, Texture, TextureSettings};
 use piston::input::{Key, RenderArgs};
-use specs::{Dispatcher, DispatcherBuilder, Entity, Entities, Fetch, FetchMut, Join, LazyUpdate,
+use specs::{Dispatcher, DispatcherBuilder, Entity, Entities, Fetch, FetchMut, Index, Join, LazyUpdate,
             ReadStorage, System, VecStorage, World, WriteStorage};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::Arc;
 use tiled;
 
@@ -62,6 +63,7 @@ pub fn create_world() -> World {
   world.register::<NRigidBody>();
   world.add_resource(RenderEvents::new());
   world.add_resource(KeyPressEvents::new());
+  world.add_resource(ForceEvents::new());
   world
 }
 
@@ -188,6 +190,28 @@ impl RenderEvents {
   }
 }
 
+#[derive(Debug)]
+struct ForceEvents(HashMap<Index, Vec<Vector2<f64>>>);
+
+impl ForceEvents {
+  fn new() -> ForceEvents {
+    ForceEvents(HashMap::new())
+  }
+
+  fn push(&mut self, index: Index, force: Vector2<f64>) {
+    let vec = self.0.entry(index).or_insert_with(Vec::new);
+    vec.push(force);
+  }
+
+  fn clear(&mut self, index: Index) {
+    self.0.remove(&index);
+  }
+
+  fn get(&mut self, index: Index) -> Vec<Vector2<f64>> {
+    self.0.get(&index).cloned().unwrap_or_else(Vec::new)
+  }
+}
+
 // systems
 struct RenderSys {
   gl: GlGraphics,
@@ -248,19 +272,20 @@ struct InputSys;
 
 impl<'a> System<'a> for InputSys {
   type SystemData = (FetchMut<'a, KeyPressEvents>,
-   ReadStorage<'a, Player>,
-   WriteStorage<'a, Transform>);
+    FetchMut<'a, ForceEvents>,
+   Entities<'a>,
+   ReadStorage<'a, Player>);
 
   fn run(&mut self, data: Self::SystemData) {
-    let (mut key_press_events, player, mut transform) = data;
+    let (mut key_press_events, mut force_events, entities, player) = data;
 
     if let Some(key) = key_press_events.0.pop_front() {
-      for (_, mut transform) in (&player, &mut transform).join() {
+      for (_, entity) in (&player, &*entities).join() {
         match key {
-          Key::Left => transform.position.x -= 1.0,
-          Key::Right => transform.position.x += 1.0,
-          Key::Up => transform.position.y -= 1.0,
-          Key::Down => transform.position.y += 1.0,
+          Key::Left => force_events.push(entity.id(), Vector2::new(-1.0, 0.0)),
+          Key::Right => force_events.push(entity.id(), Vector2::new(1.0, 0.0)),
+          Key::Up => force_events.push(entity.id(), Vector2::new(0.0, -1.0)),
+          Key::Down => force_events.push(entity.id(), Vector2::new(0.0, 1.0)),
           _ => {}
         };
       }
@@ -282,13 +307,14 @@ impl PhysicsSys {
 
 impl<'a> System<'a> for PhysicsSys {
   type SystemData = (Fetch<'a, RenderEvents>,
+    FetchMut<'a, ForceEvents>,
    Entities<'a>,
    ReadStorage<'a, NRigidBody>,
    WriteStorage<'a, Transform>,
    Fetch<'a, LazyUpdate>);
 
   fn run(&mut self, data: Self::SystemData) {
-    let (render_events, entities, bodies, mut transforms, lazy) = data;
+    let (render_events, mut force_events, entities, bodies, mut transforms, lazy) = data;
     if let Some(args) = render_events.0.front() {
       let dt = args.ext_dt;
 
@@ -313,26 +339,29 @@ impl<'a> System<'a> for PhysicsSys {
       }
 
       // step
-      self.world.step(dt);
+      self.world.step(dt * 2.0);
 
       // update
       let mut bodies_to_remove = Vec::new();
       for body in self.world.rigid_bodies() {
-        let b = body.borrow();
+        let mut b = body.borrow_mut();
         if let Some(any) = b.user_data() {
           if let Some(entity) = any.downcast_ref::<Entity>() {
+            // update the position in specs
             match transforms.get_mut(*entity) {
-              Some(trasform) => {
+              Some(transform) => {
                 let p = b.center_of_mass();
-                trasform.position.x = p.x;
-                trasform.position.y = p.y;
+                transform.position.x = p.x;
+                transform.position.y = p.y;
               }
-              None => {
-                bodies_to_remove.push(body);
-              }
+              None => bodies_to_remove.push(Rc::clone(body))
             }
           }
         }
+      }
+
+      for body in &bodies_to_remove {
+        self.world.remove_rigid_body(body);
       }
     }
   }
