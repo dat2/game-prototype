@@ -2,6 +2,151 @@
 <map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="64" tileheight="64" nextobjectid="1">
  <tileset firstgid="1" name="tilesheet" tilewidth="64" tileheight="64" tilecount="264" columns="22">
   <image source="tilesheet.png" width="1408" height="768"/>
+  <tile id="0">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="1">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="2">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="3">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="4">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="5">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="6">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="7">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="8">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="22">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="27">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="28">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="29">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="30">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="44">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="45">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="46">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="47">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="48">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="49">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="66">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="88">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="110">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="132">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="154">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="176">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="198">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="220">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
+  <tile id="242">
+   <properties>
+    <property name="shape" value="rect"/>
+   </properties>
+  </tile>
  </tileset>
  <layer name="Tile Layer 1" width="30" height="20">
   <data encoding="base64" compression="zlib">

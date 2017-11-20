@@ -18,9 +18,8 @@ use tiled;
 // components
 #[derive(Component, Debug)]
 #[component(VecStorage)]
-struct Position {
-  x: f64,
-  y: f64,
+struct Transform {
+  position: Point2<f64>,
 }
 
 #[derive(Component, Debug)]
@@ -56,7 +55,7 @@ struct NRigidBody {
 
 pub fn create_world() -> World {
   let mut world = World::new();
-  world.register::<Position>();
+  world.register::<Transform>();
   world.register::<Tile>();
   world.register::<RenderRect>();
   world.register::<Player>();
@@ -96,31 +95,46 @@ pub fn load_tiles_into_world<P: AsRef<Path>>(path: P, world: &mut World) -> Resu
   for (y, row) in map.layers[0].tiles.iter().enumerate() {
     for (x, &index) in row.iter().enumerate() {
       if index != 0 {
-        let (px, py) = (
-          x as f64,
-          y as f64,
-        );
+        let (px, py) = (x as f64, y as f64);
         let (sx, sy) = (
           (((index - 1) as usize % num_tiles_per_row) * tile_dimensions.0) as f64,
           (((index - 1) as usize / num_tiles_per_row) * tile_dimensions.1) as f64,
         );
-        world
+
+        let entity_builder = world
           .create_entity()
-          .with(Position { x: px, y: py })
+          .with(Transform { position: Point2::new(px, py) })
           .with(Tile {
             x: sx,
             y: sy,
             width: tile_dimensions.0 as f64,
             height: tile_dimensions.1 as f64,
             atlas: Arc::clone(&tilesheet),
-          })
-          .with(NRigidBody {
-            shape: Cuboid::new(Vector2::new(px, py)),
-            density: None,
-            restituion: 0.3,
-            friction: 0.6,
-          })
-          .build();
+          });
+
+        let tile = tileset.tiles.iter().find(|tile| tile.id == index);
+        let entity_builder = if let Some(tile) = tile {
+          match tile.properties.get("shape") {
+            Some(&tiled::PropertyValue::StringValue(ref s)) => {
+              match s.as_ref() {
+                "rect" => {
+                  entity_builder.with(NRigidBody {
+                    shape: Cuboid::new(Vector2::new(0.5, 0.5)),
+                    density: None,
+                    restituion: 0.3,
+                    friction: 0.6,
+                  })
+                },
+                _ => entity_builder
+              }
+            },
+            _ => entity_builder
+          }
+        } else {
+          entity_builder
+        };
+
+        entity_builder.build();
       }
     }
   }
@@ -131,7 +145,7 @@ pub fn load_tiles_into_world<P: AsRef<Path>>(path: P, world: &mut World) -> Resu
 pub fn create_player(world: &mut World) {
   world
     .create_entity()
-    .with(Position { x: 15.0, y: 8.0 })
+    .with(Transform { position: Point2::new(15.0, 8.0) })
     .with(RenderRect {
       width: 64.0,
       height: 64.0,
@@ -139,7 +153,7 @@ pub fn create_player(world: &mut World) {
     })
     .with(Player)
     .with(NRigidBody {
-      shape: Cuboid::new(Vector2::new(64.0f64, 64.0f64)),
+      shape: Cuboid::new(Vector2::new(0.5, 0.5)),
       density: Some(1.0),
       restituion: 0.3,
       friction: 0.6,
@@ -187,12 +201,12 @@ impl RenderSys {
 
 impl<'a> System<'a> for RenderSys {
   type SystemData = (FetchMut<'a, RenderEvents>,
-   ReadStorage<'a, Position>,
+   ReadStorage<'a, Transform>,
    ReadStorage<'a, Tile>,
    ReadStorage<'a, RenderRect>);
 
   fn run(&mut self, data: Self::SystemData) {
-    let (mut render_events, pos, tile, rect) = data;
+    let (mut render_events, transform, tile, rect) = data;
 
     if let Some(args) = render_events.0.pop_front() {
       self.gl.draw(args.viewport(), |c, g| {
@@ -200,8 +214,11 @@ impl<'a> System<'a> for RenderSys {
 
         // draw tile
         let image = Image::new();
-        for (pos, tile) in (&pos, &tile).join() {
-          let transform = c.transform.scale(0.5, 0.5).trans(pos.x * 64.0, pos.y * 64.0);
+        for (transform, tile) in (&transform, &tile).join() {
+          let transform = c.transform.scale(0.5, 0.5).trans(
+            transform.position.x * 64.0,
+            transform.position.y * 64.0,
+          );
 
           image
             .src_rect([tile.x, tile.y, tile.width, tile.height])
@@ -209,10 +226,15 @@ impl<'a> System<'a> for RenderSys {
         }
 
         // draw rectangles
-        for (pos, rect) in (&pos, &rect).join() {
+        for (transform, rect) in (&transform, &rect).join() {
           rectangle(
             rect.colour,
-            [pos.x * 64.0, pos.y * 64.0, rect.width, rect.height],
+            [
+              transform.position.x * 64.0,
+              transform.position.y * 64.0,
+              rect.width,
+              rect.height,
+            ],
             c.transform.scale(0.5, 0.5),
             g,
           );
@@ -227,18 +249,18 @@ struct InputSys;
 impl<'a> System<'a> for InputSys {
   type SystemData = (FetchMut<'a, KeyPressEvents>,
    ReadStorage<'a, Player>,
-   WriteStorage<'a, Position>);
+   WriteStorage<'a, Transform>);
 
   fn run(&mut self, data: Self::SystemData) {
-    let (mut key_press_events, player, mut pos) = data;
+    let (mut key_press_events, player, mut transform) = data;
 
     if let Some(key) = key_press_events.0.pop_front() {
-      for (_, mut pos) in (&player, &mut pos).join() {
+      for (_, mut transform) in (&player, &mut transform).join() {
         match key {
-          Key::Left => pos.x -= 1.0,
-          Key::Right => pos.x += 1.0,
-          Key::Up => pos.y -= 1.0,
-          Key::Down => pos.y += 1.0,
+          Key::Left => transform.position.x -= 1.0,
+          Key::Right => transform.position.x += 1.0,
+          Key::Up => transform.position.y -= 1.0,
+          Key::Down => transform.position.y += 1.0,
           _ => {}
         };
       }
@@ -253,7 +275,7 @@ struct PhysicsSys {
 impl PhysicsSys {
   fn new() -> PhysicsSys {
     let mut world = NWorld::new();
-    // world.set_gravity(Vector2::new(0.0, 9.81));
+    world.set_gravity(Vector2::new(0.0, 9.81));
     PhysicsSys { world: world }
   }
 }
@@ -262,16 +284,16 @@ impl<'a> System<'a> for PhysicsSys {
   type SystemData = (Fetch<'a, RenderEvents>,
    Entities<'a>,
    ReadStorage<'a, NRigidBody>,
-   WriteStorage<'a, Position>,
+   WriteStorage<'a, Transform>,
    Fetch<'a, LazyUpdate>);
 
   fn run(&mut self, data: Self::SystemData) {
-    let (render_events, entities, bodies, mut positions, lazy) = data;
+    let (render_events, entities, bodies, mut transforms, lazy) = data;
     if let Some(args) = render_events.0.front() {
       let dt = args.ext_dt;
 
       // add things to the world
-      for (entity, body, pos) in (&*entities, &bodies, &positions).join() {
+      for (entity, body, transform) in (&*entities, &bodies, &transforms).join() {
         let mut rb = RigidBody::new(
           ShapeHandle::new(body.shape.clone()),
           body.density.map(
@@ -280,10 +302,14 @@ impl<'a> System<'a> for PhysicsSys {
           body.restituion,
           body.friction,
         );
-        rb.append_translation(&Translation2::new(pos.x, pos.y));
+        rb.append_translation(&Translation2::new(
+          transform.position.x,
+          transform.position.y,
+        ));
         rb.set_user_data(Some(Box::new(entity)));
-        lazy.remove::<NRigidBody>(entity);
         self.world.add_rigid_body(rb);
+
+        lazy.remove::<NRigidBody>(entity);
       }
 
       // step
@@ -295,11 +321,11 @@ impl<'a> System<'a> for PhysicsSys {
         let b = body.borrow();
         if let Some(any) = b.user_data() {
           if let Some(entity) = any.downcast_ref::<Entity>() {
-            match positions.get_mut(*entity) {
-              Some(position) => {
-                let p = b.position() * Point2::origin();
-                position.x = p.x;
-                position.y = p.y;
+            match transforms.get_mut(*entity) {
+              Some(trasform) => {
+                let p = b.center_of_mass();
+                trasform.position.x = p.x;
+                trasform.position.y = p.y;
               }
               None => {
                 bodies_to_remove.push(body);
